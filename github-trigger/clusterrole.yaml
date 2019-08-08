@@ -1,0 +1,19 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: tekton
+  labels:
+    app: tekton
+rules:
+- apiGroups: ["tekton.dev"]
+  resources: ["*"]
+  verbs: ["get", "list", "create", "watch", "patch", "delete", "update"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings"]
+  verbs: ["get", "list", "create", "watch", "patch", "update"]
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get", "list", "create", "watch", "patch", "update"]
+- apiGroups: ["serving.knative.dev"]
+  resources: ["services"]
+  verbs: ["get", "list", "create", "watch", "patch", "update"]

@@ -1,0 +1,23 @@
+---
+apiVersion: serving.knative.dev/v1alpha1
+kind: Service
+metadata:
+  name: deployer-github-trigger
+spec:
+  template:
+    spec:
+      containers:
+      - image: registry.cn-hangzhou.aliyuncs.com/knative-sample/deployer-trigger:v1_74647e3a-20190806093544
+        args:
+          - --trigger-config=/app/config/deployer-trigger.yaml
+        volumeMounts:
+        - name: config-volume 
+          mountPath: /app/config
+      serviceAccountName: tekton
+      volumes:
+        - name: config-volume 
+          configMap:
+            name: deployer-trigger-config
+            items:
+              - key: deployer-trigger.yaml
+                path: deployer-trigger.yaml

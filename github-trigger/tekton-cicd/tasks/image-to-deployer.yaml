@@ -1,0 +1,24 @@
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: image-to-deploy
+spec:
+  inputs:
+    resources:
+      - name: git-source
+        type: git
+    params:
+      - name: pathToYamlFile
+        description: The path to the yaml file to deploy within the git source
+      - name: imageUrl
+        description: Url of image repository
+      - name: imageTag
+        description: Tag of the images to be used.
+        default: "latest"
+  steps:
+    - name: deploy
+        image: "registry.cn-hangzhou.aliyuncs.com/knative-sample/deployer-deployer:7620096e"
+        args:
+        - "--namespace=default"
+        - "--serivce-name=knativesample"
+        - "--image=${inputs.params.imageUrl}:${inputs.params.imageTag}"
