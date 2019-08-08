@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/knative-sample/deployer/cmd/deployer/app/options"
-	"github.com/knative-sample/deployer/pkg/deployer"
+	"github.com/knative-sample/tekton-serving/cmd/deployer/app/options"
+	"github.com/knative-sample/tekton-serving/pkg/deployer"
 	"github.com/spf13/cobra"
 )
 
