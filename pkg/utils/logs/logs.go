@@ -21,7 +21,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/knative-sample/deployer/pkg/utils/wait"
+	"github.com/knative-sample/tekton-serving/pkg/utils/wait"
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 )
