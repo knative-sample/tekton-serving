@@ -67,6 +67,14 @@ func (dp *Deployer) Run() error {
 		}
 		svc.Spec.Template.Annotations["updated"] = fmt.Sprintf("%v", time.Now().Unix())
 		svc.Spec.Template.Spec.Containers[0].Image = dp.Image
+		version := fmt.Sprintf("auto-version-%v", time.Now().Unix())
+		svc.Spec.Template.Name = version
+		tt := v1alpha1.TrafficTarget{}
+		tt.RevisionName = version
+		tt.Tag = fmt.Sprintf("test-%v", time.Now().Unix())
+		latestRevision := false
+		tt.LatestRevision = &latestRevision
+		svc.Spec.Traffic = append(svc.Spec.Traffic, tt)
 		if _, err := servingClient.ServingV1alpha1().Services(dp.Namespace).Update(svc); err != nil {
 			glog.Errorf("create serving: %s/%s error:%s", dp.Namespace, dp.ServiceName, err.Error())
 			return err
