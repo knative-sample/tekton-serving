@@ -87,7 +87,17 @@ func (dp *Trigger) onPullRequestMerged(payload *gh.PullRequestPayload) error {
 	if u.Namespace == "" {
 		u.Namespace = "default"
 	}
-
+	ps := make([]v1alpha1.Param, 0)
+	for _, param := range u.Spec.Params{
+		if param.Name == "imageTag" {
+			param.Value = v1alpha1.ArrayOrString{
+				Type: v1alpha1.ParamTypeString,
+				StringVal: fmt.Sprintf("%v", time.Now().Unix()),
+			}
+		}
+		ps = append(ps, param)
+	}
+	u.Spec.Params = ps
 	// bind role
 	if err := dp.bindServiceRole(fmt.Sprintf("%s-serving-role", u.Name), u.Namespace, u.Spec.ServiceAccount); err != nil {
 		glog.Errorf("bindService Role error:%s ", err)
