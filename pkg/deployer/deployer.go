@@ -67,7 +67,7 @@ func (dp *Deployer) Run() error {
 		}
 		svc.Spec.Template.Annotations["updated"] = fmt.Sprintf("%v", time.Now().Unix())
 		svc.Spec.Template.Spec.Containers[0].Image = dp.Image
-		version := fmt.Sprintf("auto-version-%v", time.Now().Unix())
+		version := fmt.Sprintf("%s-%v", dp.ServiceName,time.Now().Unix())
 		svc.Spec.Template.Name = version
 		tt := v1alpha1.TrafficTarget{}
 		tt.RevisionName = version
