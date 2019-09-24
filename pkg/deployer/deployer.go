@@ -65,6 +65,7 @@ func (dp *Deployer) Run() error {
 		if svc.Spec.Template.Annotations == nil {
 			svc.Spec.Template.Annotations = map[string]string{}
 		}
+		svc.Spec.Template.Name = ""
 		svc.Spec.Template.Annotations["updated"] = fmt.Sprintf("%v", time.Now().Unix())
 		svc.Spec.Template.Spec.Containers[0].Image = dp.Image
 		traffics := make([]v1alpha1.TrafficTarget, 0 )
@@ -84,7 +85,7 @@ func (dp *Deployer) Run() error {
 			tt.Tag = fmt.Sprintf("test-%v", time.Now().Unix())
 			latestRevision := false
 			tt.LatestRevision = &latestRevision
-			svc.Spec.Traffic = append(traffics, tt)
+			traffics = append(traffics, tt)
 		}
 		svc.Spec.Traffic = traffics
 		if _, err := servingClient.ServingV1alpha1().Services(dp.Namespace).Update(svc); err != nil {
