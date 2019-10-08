@@ -78,6 +78,7 @@ func (dp *Deployer) Run() error {
 		//	traffics = append(traffics, traffic)
 		//}
 		for _, traffic := range svc.Status.Traffic  {
+			traffic.URL = nil
 			if *traffic.LatestRevision == true {
 				//traffic.Tag = fmt.Sprintf("test-%v", time.Now().Unix())
 				//hasLatestRevision = true
