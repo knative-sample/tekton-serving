@@ -74,6 +74,7 @@ func (dp *Deployer) Run() error {
 			if *traffic.LatestRevision == true {
 				traffic.Tag = fmt.Sprintf("test-%v", time.Now().Unix())
 				hasLatestRevision = true
+				traffic.Percent = 0
 			}
 			traffics = append(traffics, traffic)
 		}
