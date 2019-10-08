@@ -70,11 +70,19 @@ func (dp *Deployer) Run() error {
 		svc.Spec.Template.Spec.Containers[0].Image = dp.Image
 		traffics := make([]v1alpha1.TrafficTarget, 0 )
 		hasLatestRevision := false
-		for _, traffic := range svc.Spec.Traffic  {
+		//for _, traffic := range svc.Spec.Traffic  {
+		//	if *traffic.LatestRevision == true {
+		//		traffic.Tag = fmt.Sprintf("test-%v", time.Now().Unix())
+		//		hasLatestRevision = true
+		//	}
+		//	traffics = append(traffics, traffic)
+		//}
+		for _, traffic := range svc.Status.Traffic  {
 			if *traffic.LatestRevision == true {
-				traffic.Tag = fmt.Sprintf("test-%v", time.Now().Unix())
-				hasLatestRevision = true
-				traffic.Percent = 0
+				//traffic.Tag = fmt.Sprintf("test-%v", time.Now().Unix())
+				//hasLatestRevision = true
+				latestRevision := false
+				traffic.LatestRevision = &latestRevision
 			}
 			traffics = append(traffics, traffic)
 		}
