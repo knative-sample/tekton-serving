@@ -69,34 +69,20 @@ func (dp *Deployer) Run() error {
 		svc.Spec.Template.Annotations["updated"] = fmt.Sprintf("%v", time.Now().Unix())
 		svc.Spec.Template.Spec.Containers[0].Image = dp.Image
 		traffics := make([]v1alpha1.TrafficTarget, 0 )
-		hasLatestRevision := false
-		//for _, traffic := range svc.Spec.Traffic  {
-		//	if *traffic.LatestRevision == true {
-		//		traffic.Tag = fmt.Sprintf("test-%v", time.Now().Unix())
-		//		hasLatestRevision = true
-		//	}
-		//	traffics = append(traffics, traffic)
-		//}
 		for _, traffic := range svc.Status.Traffic  {
 			traffic.URL = nil
 			if *traffic.LatestRevision == true {
-				//traffic.Tag = fmt.Sprintf("test-%v", time.Now().Unix())
-				//hasLatestRevision = true
-				latestRevision := false
-				traffic.LatestRevision = &latestRevision
+				continue
 			}
 			traffics = append(traffics, traffic)
 		}
-		if !hasLatestRevision {
-			version := fmt.Sprintf("%s-%v", dp.ServiceName,time.Now().Unix())
-			svc.Spec.Template.Name = version
-			tt := v1alpha1.TrafficTarget{}
-			tt.RevisionName = version
-			tt.Tag = fmt.Sprintf("test-%v", time.Now().Unix())
-			latestRevision := false
-			tt.LatestRevision = &latestRevision
-			traffics = append(traffics, tt)
-		}
+		tt := v1alpha1.TrafficTarget{}
+		tt.Tag = fmt.Sprintf("test-%v", time.Now().Unix())
+		latestRevision := true
+		tt.LatestRevision = &latestRevision
+		traffics = append(traffics, tt)
+
+
 		svc.Spec.Traffic = traffics
 		if _, err := servingClient.ServingV1alpha1().Services(dp.Namespace).Update(svc); err != nil {
 			glog.Errorf("create serving: %s/%s error:%s", dp.Namespace, dp.ServiceName, err.Error())
