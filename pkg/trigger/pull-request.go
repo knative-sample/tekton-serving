@@ -63,10 +63,10 @@ func (dp *Trigger) pullRequestMergedEvent(payload *EventInfo) error {
 	}
 	u.Spec.Params = ps
 	// bind role
-	if err := dp.bindServiceRole(fmt.Sprintf("%s-serving-role", u.Name), u.Namespace, u.Spec.ServiceAccount); err != nil {
-		glog.Errorf("bindService Role error:%s ", err)
-		return err
-	}
+	//if err := dp.bindServiceRole(fmt.Sprintf("%s-serving-role", u.Name), u.Namespace, u.Spec.ServiceAccount); err != nil {
+	//	glog.Errorf("bindService Role error:%s ", err)
+	//	return err
+	//}
 
 	if _, err := tektonClient.TektonV1alpha1().PipelineRuns(u.Namespace).Get(u.Name, metav1.GetOptions{}); err != nil {
 		// The Build resource may not exist.

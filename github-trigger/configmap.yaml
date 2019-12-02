@@ -8,7 +8,7 @@ data:
     apiVersion: tekton.dev/v1alpha1
     kind: PipelineRun
     metadata:
-      generateName: tekton-kn-sample-
+      name: tekton-kn-cs-sample
     spec:
       pipelineRef:
         name: build-and-deploy-pipeline

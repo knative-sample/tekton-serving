@@ -16,6 +16,7 @@ spec:
       description: Url of image repository
     - name: imageTag
       description: Tag to apply to the built image
+  tasks:
   - name: image-to-deploy
     taskRef:
       name: image-to-deploy
