@@ -5,30 +5,16 @@ import (
 	"net/http"
 	"os"
 
-	"bytes"
-	"strings"
-
 	"fmt"
 
 	"io/ioutil"
 
-	"github.com/cloudevents/sdk-go/pkg/cloudevents"
 	"github.com/golang/glog"
-	gh "gopkg.in/go-playground/webhooks.v5/github"
 )
 
 const (
 	ApplicationJSON = "application/json"
-
-	// gitHubEventTypePrefix is what all GitHub event types get
-	// prefixed with when converting to CloudEvents.
-	gitHubEventTypePrefix = "dev.knative.source.github"
 )
-
-// GitHubEventType returns the GitHub CloudEvent type value.
-func gitHubEventType(ghEventType gh.Event) string {
-	return fmt.Sprintf("%s.%s", gitHubEventTypePrefix, ghEventType)
-}
 
 type Trigger struct {
 	TriggerConfig string
@@ -39,6 +25,17 @@ type Args struct {
 	Commitid      string
 	Branch        string
 	TimeString    string
+}
+
+type EventInfo struct {
+	PushData   PushData   `json:"push_data"`
+	Repository Repository `json:"repository"`
+}
+type PushData struct {
+	Tag string `json:"tag"`
+}
+type Repository struct {
+	RepoFullName string `json:"repo_full_name"`
 }
 
 func (dp *Trigger) Run() error {
@@ -53,49 +50,13 @@ func (dp *Trigger) Run() error {
 	return nil
 }
 
-func (api *Trigger) Event(w http.ResponseWriter, r *http.Request) {
+func (dp *Trigger) Event(w http.ResponseWriter, r *http.Request) {
 	body, _ := ioutil.ReadAll(r.Body)
-	fmt.Println(body)
-}
-func (dp *Trigger) run(e cloudevents.Event) error {
-	switch e.Context.GetType() {
-	case gitHubEventType(gh.PingEvent):
-		dp.logEvent(e)
-	case gitHubEventType(gh.PullRequestEvent):
-		return dp.pullRequestMergedEvent(e)
-	default:
-		glog.Infof("ingore Event: %s ", e.Context.GetType())
-	}
+	fmt.Printf("%s", body)
+	ei := &EventInfo{}
+	json.Unmarshal(body, ei)
+	dp.pullRequestMergedEvent(ei)
 
-	return nil
 }
 
-func (dp *Trigger) logEvent(e cloudevents.Event) {
-	b := strings.Builder{}
-	if e.Data != nil {
-		b.WriteString("Data,\n  ")
-		if strings.HasPrefix(e.DataContentType(), ApplicationJSON) {
-			var prettyJSON bytes.Buffer
-
-			data, ok := e.Data.([]byte)
-			if !ok {
-				var err error
-				data, err = json.Marshal(e.Data)
-				if err != nil {
-					data = []byte(err.Error())
-				}
-			}
-			err := json.Indent(&prettyJSON, data, "  ", "  ")
-			if err != nil {
-				b.Write(e.Data.([]byte))
-			} else {
-				b.Write(prettyJSON.Bytes())
-			}
-		} else {
-			b.Write(e.Data.([]byte))
-		}
-		b.WriteString("\n")
-	}
-
-	glog.Infof("cloudevents.Event\n  Type:%s\n  Data:%s", e.Context.GetType(), b.String())
-}
+const t = `{"push_data":{"digest":"sha256:5c15432f9284d16c71e05ac271ac135bfc32c0905f23bf644e69a2da583901b9","pushed_at":"2019-12-02 17:53:03","tag":"v2_6aad4833-20191202175300"},"repository":{"date_created":"2019-06-15 16:09:27","name":"deployer-trigger","namespace":"knative-sample","region":"cn-hangzhou","repo_authentication_type":"NO_CERTIFIED","repo_full_name":"knative-sample/deployer-trigger","repo_origin_type":"NO_CERTIFIED","repo_type":"PUBLIC"}}`

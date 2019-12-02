@@ -16,26 +16,9 @@ spec:
       description: Url of image repository
     - name: imageTag
       description: Tag to apply to the built image
-  tasks:
-  - name: source-to-image
-    taskRef:
-      name: source-to-image
-    params:
-      - name: pathToContext
-        value: "${params.pathToContext}"
-      - name: imageUrl
-        value: "${params.imageUrl}"
-      - name: imageTag
-        value: "${params.imageTag}"
-    resources:
-      inputs:
-        - name: git-source
-          resource: git-source
   - name: image-to-deploy
     taskRef:
       name: image-to-deploy
-    runAfter:
-      - source-to-image
     params:
       - name: pathToYamlFile
         value: "${params.pathToYamlFile}"

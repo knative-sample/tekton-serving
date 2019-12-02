@@ -25,4 +25,3 @@ data:
           value: "registry.cn-hangzhou.aliyuncs.com/knative-sample/tekton-knative-helloworld"
         - name: imageTag
           value: "1.0"
-      serviceAccount: pipeline-account

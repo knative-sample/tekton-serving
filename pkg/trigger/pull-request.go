@@ -2,67 +2,31 @@ package trigger
 
 import (
 	"bytes"
-	"encoding/json"
 	"text/template"
-	"time"
 
 	"github.com/golang/glog"
 	"github.com/knative-sample/tekton-serving/pkg/utils/kube"
 	v1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tektonclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
-	gh "gopkg.in/go-playground/webhooks.v5/github"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"fmt"
 
-	"github.com/cloudevents/sdk-go/pkg/cloudevents"
 	"github.com/ghodss/yaml"
 	"k8s.io/api/rbac/v1beta1"
 )
 
-func (dp *Trigger) pullRequestMergedEvent(e cloudevents.Event) error {
-	payload := &gh.PullRequestPayload{}
-	if e.Data == nil {
-		glog.Infof("cloudevents.Event\n  Type:%s\n  Data is empty", e.Context.GetType())
-	}
-
-	data, ok := e.Data.([]byte)
-	if !ok {
-		var err error
-		data, err = json.Marshal(e.Data)
-		if err != nil {
-			data = []byte(err.Error())
-		}
-	}
-	json.Unmarshal(data, payload)
-
-	if payload.Action == "closed" && payload.PullRequest.Merged {
-		return dp.onPullRequestMerged(payload)
-	}
-
-	glog.Infof("pull request, action: %s merged: %v pull_request url: %s ", payload.Action, payload.PullRequest.Merged, payload.PullRequest.HTMLURL)
-
-	return nil
-}
-
-func (dp *Trigger) onPullRequestMerged(payload *gh.PullRequestPayload) error {
-	glog.Infof("pull request, action: %s merged: %v pull_request url: %s ", payload.Action, payload.PullRequest.Merged, payload.PullRequest.HTMLURL)
-	mergeCommitSha := *payload.PullRequest.MergeCommitSha
-	args := &Args{
-		Commitid:      mergeCommitSha,
-		ShortCommitid: mergeCommitSha[:8],
-		TimeString:    time.Now().Format("20060102150405"),
-		Branch:        payload.PullRequest.Base.Ref,
-	}
+func (dp *Trigger) pullRequestMergedEvent(payload *EventInfo) error {
+	glog.Infof("pullRequestMergedEvent, image: %s:%s ", payload.Repository.RepoFullName, payload.PushData.Tag)
 
 	tmpl, err := template.ParseFiles(dp.TriggerConfig)
 	if err != nil {
 		glog.Errorf("Parse TriggerConfig error:%s ", err.Error())
 		return err
 	}
-
+	args := &Args{}
 	buf := &bytes.Buffer{}
 	tmpl.Execute(buf, args)
 
@@ -88,11 +52,11 @@ func (dp *Trigger) onPullRequestMerged(payload *gh.PullRequestPayload) error {
 		u.Namespace = "default"
 	}
 	ps := make([]v1alpha1.Param, 0)
-	for _, param := range u.Spec.Params{
+	for _, param := range u.Spec.Params {
 		if param.Name == "imageTag" {
 			param.Value = v1alpha1.ArrayOrString{
-				Type: v1alpha1.ParamTypeString,
-				StringVal: fmt.Sprintf("%v", time.Now().Unix()),
+				Type:      v1alpha1.ParamTypeString,
+				StringVal: payload.PushData.Tag,
 			}
 		}
 		ps = append(ps, param)
