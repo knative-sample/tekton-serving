@@ -1,18 +1,19 @@
 package trigger
 
 import (
-	"context"
-
 	"encoding/json"
+	"net/http"
+	"os"
 
 	"bytes"
 	"strings"
 
 	"fmt"
 
+	"io/ioutil"
+
 	"github.com/cloudevents/sdk-go/pkg/cloudevents"
 	"github.com/golang/glog"
-	"github.com/knative/eventing-sources/pkg/kncloudevents"
 	gh "gopkg.in/go-playground/webhooks.v5/github"
 )
 
@@ -42,16 +43,20 @@ type Args struct {
 
 func (dp *Trigger) Run() error {
 	glog.Info("Trigger is run")
-	c, err := kncloudevents.NewDefaultClient()
-	if err != nil {
-		glog.Error("Failed to create client, ", err)
-		return err
-	}
 
-	glog.Fatal(c.StartReceiver(context.Background(), dp.run))
+	http.HandleFunc("/api/event", dp.Event)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	return nil
 }
 
+func (api *Trigger) Event(w http.ResponseWriter, r *http.Request) {
+	body, _ := ioutil.ReadAll(r.Body)
+	fmt.Println(body)
+}
 func (dp *Trigger) run(e cloudevents.Event) error {
 	switch e.Context.GetType() {
 	case gitHubEventType(gh.PingEvent):
