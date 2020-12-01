@@ -17,9 +17,18 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
+
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+)
+
+const (
+	// TaskRunResultType default task run result value
+	TaskRunResultType ResultType = v1beta1.TaskRunResultType
+	// PipelineResourceResultType default pipeline result value
+	PipelineResourceResultType ResultType = v1beta1.PipelineResourceResultType
+	// UnknownResultType default unknown result type value
+	UnknownResultType ResultType = v1beta1.UnknownResultType
 )
 
 func (t *Task) TaskSpec() TaskSpec {
@@ -36,6 +45,8 @@ func (t *Task) Copy() TaskInterface {
 
 // TaskSpec defines the desired state of Task.
 type TaskSpec struct {
+	v1beta1.TaskSpec `json:",inline"`
+
 	// Inputs is an optional set of parameters and resources which must be
 	// supplied by the user when a Task is executed by a TaskRun.
 	// +optional
@@ -44,32 +55,16 @@ type TaskSpec struct {
 	// Task is run.
 	// +optional
 	Outputs *Outputs `json:"outputs,omitempty"`
-
-	// Steps are the steps of the build; each step is run sequentially with the
-	// source mounted into /workspace.
-	Steps []corev1.Container `json:"steps,omitempty"`
-
-	// Volumes is a collection of volumes that are available to mount into the
-	// steps of the build.
-	Volumes []corev1.Volume `json:"volumes,omitempty"`
-
-	// StepTemplate can be used as the basis for all step containers within the
-	// Task, so that the steps inherit settings on the base container.
-	StepTemplate *corev1.Container `json:"stepTemplate,omitempty"`
-
-	// ContainerTemplate is the deprecated previous name of the StepTemplate
-	// field (#977).
-	ContainerTemplate *corev1.Container `json:"containerTemplate,omitempty"`
 }
 
-// Check that Task may be validated and defaulted.
-var _ apis.Validatable = (*Task)(nil)
-var _ apis.Defaultable = (*Task)(nil)
+// TaskResult used to describe the results of a task
+type TaskResult = v1beta1.TaskResult
 
-const (
-	// TaskOutputImageDefaultDir is the default directory for output image resource,
-	TaskOutputImageDefaultDir = "/builder/home/image-outputs"
-)
+// Step embeds the Container type, which allows it to include fields not
+// provided by Container.
+type Step = v1beta1.Step
+
+type Sidecar = v1beta1.Sidecar
 
 // +genclient
 // +genclient:noStatus
@@ -110,21 +105,7 @@ type Inputs struct {
 // the Task definition, and when provided as an Input, the Name will be the
 // path to the volume mounted containing this Resource as an input (e.g.
 // an input Resource named `workspace` will be mounted at `/workspace`).
-type TaskResource struct {
-	// Name declares the name by which a resource is referenced in the Task's
-	// definition. Resources may be referenced by name in the definition of a
-	// Task's steps.
-	Name string `json:"name"`
-	// Type is the type of this resource;
-	Type PipelineResourceType `json:"type"`
-	// TargetPath is the path in workspace directory where the task resource
-	// will be copied.
-	// +optional
-	TargetPath string `json:"targetPath"`
-	// Path to the index.json file for output container images.
-	// +optional
-	OutputImageDir string `json:"outputImageDir"`
-}
+type TaskResource = v1beta1.TaskResource
 
 // Outputs allow a task to declare what data the Build/Task will be producing,
 // i.e. results such as logs and artifacts such as images.

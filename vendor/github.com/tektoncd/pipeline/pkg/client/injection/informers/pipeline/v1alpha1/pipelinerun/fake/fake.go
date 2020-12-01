@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Tekton Authors
+Copyright 2020 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
-	fake "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/factory/fake"
+	fake "github.com/tektoncd/pipeline/pkg/client/injection/informers/factory/fake"
 	pipelinerun "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1alpha1/pipelinerun"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"

@@ -23,6 +23,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
+	"github.com/tektoncd/pipeline/test/diff"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 )
@@ -60,10 +62,10 @@ func TestPipelineRun_Invalidate(t *testing.T) {
 					Name: "pipelinelineName",
 				},
 				Spec: v1alpha1.PipelineRunSpec{
-					ServiceAccount: "foo",
+					ServiceAccountName: "foo",
 				},
 			},
-			want: apis.ErrMissingField("pipelinerun.spec.Pipelineref.Name"),
+			want: apis.ErrMissingField("spec.pipelineref.name, spec.pipelinespec"),
 		}, {
 			name: "negative pipeline timeout",
 			pr: v1alpha1.PipelineRun{
@@ -71,7 +73,7 @@ func TestPipelineRun_Invalidate(t *testing.T) {
 					Name: "pipelinelineName",
 				},
 				Spec: v1alpha1.PipelineRunSpec{
-					PipelineRef: v1alpha1.PipelineRef{
+					PipelineRef: &v1alpha1.PipelineRef{
 						Name: "prname",
 					},
 					Timeout: &metav1.Duration{Duration: -48 * time.Hour},
@@ -81,11 +83,11 @@ func TestPipelineRun_Invalidate(t *testing.T) {
 		},
 	}
 
-	for _, ts := range tests {
-		t.Run(ts.name, func(t *testing.T) {
-			err := ts.pr.Validate(context.Background())
-			if d := cmp.Diff(err.Error(), ts.want.Error()); d != "" {
-				t.Errorf("PipelineRun.Validate/%s (-want, +got) = %v", ts.name, d)
+	for _, ps := range tests {
+		t.Run(ps.name, func(t *testing.T) {
+			err := ps.pr.Validate(context.Background())
+			if d := cmp.Diff(err.Error(), ps.want.Error()); d != "" {
+				t.Errorf("PipelineRun.Validate/%s %s", ps.name, diff.PrintWantGot(d))
 			}
 		})
 	}
@@ -103,12 +105,8 @@ func TestPipelineRun_Validate(t *testing.T) {
 					Name: "pipelinelineName",
 				},
 				Spec: v1alpha1.PipelineRunSpec{
-					PipelineRef: v1alpha1.PipelineRef{
+					PipelineRef: &v1alpha1.PipelineRef{
 						Name: "prname",
-					},
-					Results: &v1alpha1.Results{
-						URL:  "http://www.google.com",
-						Type: "gcs",
 					},
 				},
 			},
@@ -119,7 +117,7 @@ func TestPipelineRun_Validate(t *testing.T) {
 					Name: "pipelinelineName",
 				},
 				Spec: v1alpha1.PipelineRunSpec{
-					PipelineRef: v1alpha1.PipelineRef{
+					PipelineRef: &v1alpha1.PipelineRef{
 						Name: "prname",
 					},
 					Timeout: &metav1.Duration{Duration: 0},
@@ -132,6 +130,91 @@ func TestPipelineRun_Validate(t *testing.T) {
 		t.Run(ts.name, func(t *testing.T) {
 			if err := ts.pr.Validate(context.Background()); err != nil {
 				t.Errorf("Unexpected PipelineRun.Validate() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestPipelineRunSpec_Invalidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		spec    v1alpha1.PipelineRunSpec
+		wantErr *apis.FieldError
+	}{{
+		name:    "Empty pipelineSpec",
+		spec:    v1alpha1.PipelineRunSpec{},
+		wantErr: apis.ErrMissingField("spec"),
+	}, {
+		name: "pipelineRef without Pipeline Name",
+		spec: v1alpha1.PipelineRunSpec{
+			PipelineRef: &v1alpha1.PipelineRef{},
+		},
+		wantErr: apis.ErrMissingField("spec.pipelineref.name", "spec.pipelinespec"),
+	}, {
+		name: "pipelineRef and pipelineSpec together",
+		spec: v1alpha1.PipelineRunSpec{
+			PipelineRef: &v1alpha1.PipelineRef{
+				Name: "pipelinerefname",
+			},
+			PipelineSpec: &v1alpha1.PipelineSpec{
+				Tasks: []v1alpha1.PipelineTask{{
+					Name: "mytask",
+					TaskRef: &v1alpha1.TaskRef{
+						Name: "mytask",
+					},
+				}}},
+		},
+		wantErr: apis.ErrDisallowedFields("spec.pipelinespec", "spec.pipelineref"),
+	}, {
+		name: "workspaces may only appear once",
+		spec: v1alpha1.PipelineRunSpec{
+			PipelineRef: &v1alpha1.PipelineRef{
+				Name: "pipelinerefname",
+			},
+			Workspaces: []v1alpha1.WorkspaceBinding{{
+				Name:     "ws",
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			}, {
+				Name:     "ws",
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			}},
+		},
+		wantErr: &apis.FieldError{
+			Message: `workspace "ws" provided by pipelinerun more than once, at index 0 and 1`,
+			Paths:   []string{"spec.workspaces"},
+		},
+	}}
+	for _, ps := range tests {
+		t.Run(ps.name, func(t *testing.T) {
+			err := ps.spec.Validate(context.Background())
+			if d := cmp.Diff(ps.wantErr.Error(), err.Error()); d != "" {
+				t.Errorf("PipelineRunSpec.Validate/%s %s", ps.name, diff.PrintWantGot(d))
+			}
+		})
+	}
+}
+
+func TestPipelineRunSpec_Validate(t *testing.T) {
+	tests := []struct {
+		name string
+		spec v1alpha1.PipelineRunSpec
+	}{{
+		name: "PipelineRun without pipelineRef",
+		spec: v1alpha1.PipelineRunSpec{
+			PipelineSpec: &v1alpha1.PipelineSpec{
+				Tasks: []v1alpha1.PipelineTask{{
+					Name: "mytask",
+					TaskRef: &v1alpha1.TaskRef{
+						Name: "mytask",
+					},
+				}},
+			},
+		},
+	}}
+	for _, ps := range tests {
+		t.Run(ps.name, func(t *testing.T) {
+			if err := ps.spec.Validate(context.Background()); err != nil {
+				t.Errorf("PipelineRunSpec.Validate/%s %v", ps.name, err)
 			}
 		})
 	}

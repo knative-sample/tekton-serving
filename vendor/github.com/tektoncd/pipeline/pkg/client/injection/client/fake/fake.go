@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Tekton Authors
+Copyright 2020 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	fake "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake"
 	client "github.com/tektoncd/pipeline/pkg/client/injection/client"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	rest "k8s.io/client-go/rest"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
 )
@@ -47,8 +47,8 @@ func With(ctx context.Context, objects ...runtime.Object) (context.Context, *fak
 func Get(ctx context.Context) *fake.Clientset {
 	untyped := ctx.Value(client.Key{})
 	if untyped == nil {
-		logging.FromContext(ctx).Fatalf(
-			"Unable to fetch %T from context.", (*fake.Clientset)(nil))
+		logging.FromContext(ctx).Panic(
+			"Unable to fetch github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake.Clientset from context.")
 	}
 	return untyped.(*fake.Clientset)
 }

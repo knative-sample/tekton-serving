@@ -22,7 +22,10 @@ import (
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 )
+
+var _ apis.Defaultable = (*PipelineRun)(nil)
 
 func (pr *PipelineRun) SetDefaults(ctx context.Context) {
 	pr.Spec.SetDefaults(ctx)
@@ -32,5 +35,19 @@ func (prs *PipelineRunSpec) SetDefaults(ctx context.Context) {
 	cfg := config.FromContextOrDefaults(ctx)
 	if prs.Timeout == nil {
 		prs.Timeout = &metav1.Duration{Duration: time.Duration(cfg.Defaults.DefaultTimeoutMinutes) * time.Minute}
+	}
+
+	defaultSA := cfg.Defaults.DefaultServiceAccount
+	if prs.ServiceAccountName == "" && defaultSA != "" {
+		prs.ServiceAccountName = defaultSA
+	}
+
+	defaultPodTemplate := cfg.Defaults.DefaultPodTemplate
+	if prs.PodTemplate == nil {
+		prs.PodTemplate = defaultPodTemplate
+	}
+
+	if prs.PipelineSpec != nil {
+		prs.PipelineSpec.SetDefaults(ctx)
 	}
 }

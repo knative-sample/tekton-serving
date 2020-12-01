@@ -18,13 +18,18 @@ package v1alpha1
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/tektoncd/pipeline/pkg/apis/validate"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 )
 
+var _ apis.Validatable = (*Condition)(nil)
+
 func (c Condition) Validate(ctx context.Context) *apis.FieldError {
-	if err := validateObjectMetadata(c.GetObjectMeta()); err != nil {
+	if err := validate.ObjectMetadata(c.GetObjectMeta()); err != nil {
 		return err.ViaField("metadata")
 	}
 	return c.Spec.Validate(ctx).ViaField("Spec")
@@ -35,8 +40,17 @@ func (cs *ConditionSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	if cs.Check.Image == "" {
-		return apis.ErrMissingField("Check.Image")
+	// Validate condition check name
+	if errs := validation.IsDNS1123Label(cs.Check.Name); cs.Check.Name != "" && len(errs) > 0 {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("invalid value %q", cs.Check.Name),
+			Paths:   []string{"Check.name"},
+			Details: "Condition check name must be a valid DNS Label, For more info refer to https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+		}
+	}
+
+	if err := validateSteps([]Step{cs.Check}).ViaField("Check"); err != nil {
+		return err
 	}
 	return nil
 }

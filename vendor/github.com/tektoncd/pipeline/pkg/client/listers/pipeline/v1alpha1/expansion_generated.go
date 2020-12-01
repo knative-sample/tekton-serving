@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Tekton Authors
+Copyright 2020 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,14 +37,6 @@ type PipelineListerExpansion interface{}
 // PipelineNamespaceListerExpansion allows custom methods to be added to
 // PipelineNamespaceLister.
 type PipelineNamespaceListerExpansion interface{}
-
-// PipelineResourceListerExpansion allows custom methods to be added to
-// PipelineResourceLister.
-type PipelineResourceListerExpansion interface{}
-
-// PipelineResourceNamespaceListerExpansion allows custom methods to be added to
-// PipelineResourceNamespaceLister.
-type PipelineResourceNamespaceListerExpansion interface{}
 
 // PipelineRunListerExpansion allows custom methods to be added to
 // PipelineRunLister.

@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Tekton Authors
+Copyright 2020 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,8 +30,6 @@ type Interface interface {
 	Conditions() ConditionInformer
 	// Pipelines returns a PipelineInformer.
 	Pipelines() PipelineInformer
-	// PipelineResources returns a PipelineResourceInformer.
-	PipelineResources() PipelineResourceInformer
 	// PipelineRuns returns a PipelineRunInformer.
 	PipelineRuns() PipelineRunInformer
 	// Tasks returns a TaskInformer.
@@ -64,11 +62,6 @@ func (v *version) Conditions() ConditionInformer {
 // Pipelines returns a PipelineInformer.
 func (v *version) Pipelines() PipelineInformer {
 	return &pipelineInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// PipelineResources returns a PipelineResourceInformer.
-func (v *version) PipelineResources() PipelineResourceInformer {
-	return &pipelineResourceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // PipelineRuns returns a PipelineRunInformer.

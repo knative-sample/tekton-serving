@@ -21,29 +21,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tektoncd/pipeline/test/builder"
-
 	"github.com/google/go-cmp/cmp"
+	tb "github.com/tektoncd/pipeline/internal/builder/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/pipeline/test/diff"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
-
-	tb "github.com/tektoncd/pipeline/test/builder"
 )
 
-func TestTaskRun_Invalidate(t *testing.T) {
+func TestTaskRun_Invalid(t *testing.T) {
 	tests := []struct {
 		name string
 		task *v1alpha1.TaskRun
 		want *apis.FieldError
 	}{{
 		name: "invalid taskspec",
-		task: tb.TaskRun("taskmetaname", "default"),
+		task: tb.TaskRun("taskmetaname"),
 		want: apis.ErrMissingField("spec"),
 	}, {
 		name: "invalid taskrun metadata",
-		task: tb.TaskRun("task.name", "default"),
+		task: tb.TaskRun("task.name"),
 		want: &apis.FieldError{
 			Message: "Invalid resource name: special character . must not be present",
 			Paths:   []string{"metadata.name"},
@@ -53,14 +52,14 @@ func TestTaskRun_Invalidate(t *testing.T) {
 		t.Run(ts.name, func(t *testing.T) {
 			err := ts.task.Validate(context.Background())
 			if d := cmp.Diff(err.Error(), ts.want.Error()); d != "" {
-				t.Errorf("TaskRun.Validate/%s (-want, +got) = %v", ts.name, d)
+				t.Errorf("TaskRun.Validate/%s %s", ts.name, diff.PrintWantGot(d))
 			}
 		})
 	}
 }
 
 func TestTaskRun_Validate(t *testing.T) {
-	tr := tb.TaskRun("taskname", "default", tb.TaskRunSpec(
+	tr := tb.TaskRun("taskname", tb.TaskRunSpec(
 		tb.TaskRunTaskRef("taskrefname"),
 	))
 	if err := tr.Validate(context.Background()); err != nil {
@@ -68,7 +67,42 @@ func TestTaskRun_Validate(t *testing.T) {
 	}
 }
 
-func TestTaskRunSpec_Invalidate(t *testing.T) {
+func TestTaskRun_Workspaces_Invalid(t *testing.T) {
+	tests := []struct {
+		name    string
+		tr      *v1alpha1.TaskRun
+		wantErr *apis.FieldError
+	}{{
+		name: "make sure WorkspaceBinding validation invoked",
+		tr: tb.TaskRun("taskname", tb.TaskRunSpec(
+			tb.TaskRunTaskRef("task"),
+			// When using PVC it's required that you provide a volume name
+			tb.TaskRunWorkspacePVC("workspace", "", ""),
+		)),
+		wantErr: apis.ErrMissingField("workspace.persistentvolumeclaim.claimname"),
+	}, {
+		name: "bind same workspace twice",
+		tr: tb.TaskRun("taskname", tb.TaskRunSpec(
+			tb.TaskRunTaskRef("task"),
+			tb.TaskRunWorkspaceEmptyDir("workspace", ""),
+			tb.TaskRunWorkspaceEmptyDir("workspace", ""),
+		)),
+		wantErr: apis.ErrMultipleOneOf("spec.workspaces.name"),
+	}}
+	for _, ts := range tests {
+		t.Run(ts.name, func(t *testing.T) {
+			err := ts.tr.Validate(context.Background())
+			if err == nil {
+				t.Errorf("Expected error for invalid TaskRun but got none")
+			}
+			if d := cmp.Diff(ts.wantErr.Error(), err.Error()); d != "" {
+				t.Errorf("TaskRunSpec.Validate/%s %s", ts.name, diff.PrintWantGot(d))
+			}
+		})
+	}
+}
+
+func TestTaskRunSpec_Invalid(t *testing.T) {
 	tests := []struct {
 		name    string
 		spec    v1alpha1.TaskRunSpec
@@ -89,12 +123,12 @@ func TestTaskRunSpec_Invalidate(t *testing.T) {
 			TaskRef: &v1alpha1.TaskRef{
 				Name: "taskrefname",
 			},
-			TaskSpec: &v1alpha1.TaskSpec{
-				Steps: []corev1.Container{{
+			TaskSpec: &v1alpha1.TaskSpec{TaskSpec: v1beta1.TaskSpec{
+				Steps: []v1alpha1.Step{{Container: corev1.Container{
 					Name:  "mystep",
 					Image: "myimage",
-				}},
-			},
+				}}},
+			}},
 		},
 		wantErr: apis.ErrDisallowedFields("spec.taskspec", "spec.taskref"),
 	}, {
@@ -109,12 +143,12 @@ func TestTaskRunSpec_Invalidate(t *testing.T) {
 	}, {
 		name: "invalid taskspec",
 		spec: v1alpha1.TaskRunSpec{
-			TaskSpec: &v1alpha1.TaskSpec{
-				Steps: []corev1.Container{{
+			TaskSpec: &v1alpha1.TaskSpec{TaskSpec: v1beta1.TaskSpec{
+				Steps: []v1alpha1.Step{{Container: corev1.Container{
 					Name:  "invalid-name-with-$weird-char*/%",
 					Image: "myimage",
-				}},
-			},
+				}}},
+			}},
 		},
 		wantErr: &apis.FieldError{
 			Message: `invalid value "invalid-name-with-$weird-char*/%"`,
@@ -126,7 +160,7 @@ func TestTaskRunSpec_Invalidate(t *testing.T) {
 		t.Run(ts.name, func(t *testing.T) {
 			err := ts.spec.Validate(context.Background())
 			if d := cmp.Diff(ts.wantErr.Error(), err.Error()); d != "" {
-				t.Errorf("TaskRunSpec.Validate/%s (-want, +got) = %v", ts.name, d)
+				t.Errorf("TaskRunSpec.Validate/%s %s", ts.name, diff.PrintWantGot(d))
 			}
 		})
 	}
@@ -139,23 +173,36 @@ func TestTaskRunSpec_Validate(t *testing.T) {
 	}{{
 		name: "taskspec without a taskRef",
 		spec: v1alpha1.TaskRunSpec{
-			TaskSpec: &v1alpha1.TaskSpec{
-				Steps: []corev1.Container{{
+			TaskSpec: &v1alpha1.TaskSpec{TaskSpec: v1beta1.TaskSpec{
+				Steps: []v1alpha1.Step{{Container: corev1.Container{
 					Name:  "mystep",
 					Image: "myimage",
-				}},
-			},
+				}}},
+			}},
 		},
 	}, {
 		name: "no timeout",
 		spec: v1alpha1.TaskRunSpec{
 			Timeout: &metav1.Duration{Duration: 0},
-			TaskSpec: &v1alpha1.TaskSpec{
-				Steps: []corev1.Container{{
+			TaskSpec: &v1alpha1.TaskSpec{TaskSpec: v1beta1.TaskSpec{
+				Steps: []v1alpha1.Step{{Container: corev1.Container{
 					Name:  "mystep",
 					Image: "myimage",
+				}}},
+			}},
+		},
+	}, {
+		name: "task spec with credentials.path variable",
+		spec: v1alpha1.TaskRunSpec{
+			TaskSpec: &v1alpha1.TaskSpec{TaskSpec: v1beta1.TaskSpec{
+				Steps: []v1alpha1.Step{{
+					Container: corev1.Container{
+						Name:  "mystep",
+						Image: "myimage",
+					},
+					Script: `echo "creds-init writes to $(credentials.path)"`,
 				}},
-			},
+			}},
 		},
 	}}
 	for _, ts := range tests {
@@ -171,13 +218,15 @@ func TestInput_Validate(t *testing.T) {
 	i := v1alpha1.TaskRunInputs{
 		Params: []v1alpha1.Param{{
 			Name:  "name",
-			Value: *builder.ArrayOrString("value"),
+			Value: *tb.ArrayOrString("value"),
 		}},
 		Resources: []v1alpha1.TaskResourceBinding{{
-			ResourceRef: v1alpha1.PipelineResourceRef{
-				Name: "testresource",
+			PipelineResourceBinding: v1alpha1.PipelineResourceBinding{
+				ResourceRef: &v1alpha1.PipelineResourceRef{
+					Name: "testresource",
+				},
+				Name: "workspace",
 			},
-			Name: "workspace",
 		}},
 	}
 	if err := i.Validate(context.Background(), "spec.inputs"); err != nil {
@@ -185,7 +234,7 @@ func TestInput_Validate(t *testing.T) {
 	}
 }
 
-func TestInput_Invalidate(t *testing.T) {
+func TestInput_Invalid(t *testing.T) {
 	tests := []struct {
 		name    string
 		inputs  v1alpha1.TaskRunInputs
@@ -194,15 +243,19 @@ func TestInput_Invalidate(t *testing.T) {
 		name: "duplicate task inputs",
 		inputs: v1alpha1.TaskRunInputs{
 			Resources: []v1alpha1.TaskResourceBinding{{
-				ResourceRef: v1alpha1.PipelineResourceRef{
-					Name: "testresource1",
+				PipelineResourceBinding: v1alpha1.PipelineResourceBinding{
+					ResourceRef: &v1alpha1.PipelineResourceRef{
+						Name: "testresource1",
+					},
+					Name: "workspace",
 				},
-				Name: "workspace",
 			}, {
-				ResourceRef: v1alpha1.PipelineResourceRef{
-					Name: "testresource2",
+				PipelineResourceBinding: v1alpha1.PipelineResourceBinding{
+					ResourceRef: &v1alpha1.PipelineResourceRef{
+						Name: "testresource2",
+					},
+					Name: "workspace",
 				},
-				Name: "workspace",
 			}},
 		},
 		wantErr: apis.ErrMultipleOneOf("spec.Inputs.Resources.Name"),
@@ -210,17 +263,19 @@ func TestInput_Invalidate(t *testing.T) {
 		name: "invalid task input params",
 		inputs: v1alpha1.TaskRunInputs{
 			Resources: []v1alpha1.TaskResourceBinding{{
-				ResourceRef: v1alpha1.PipelineResourceRef{
-					Name: "testresource",
+				PipelineResourceBinding: v1alpha1.PipelineResourceBinding{
+					ResourceRef: &v1alpha1.PipelineResourceRef{
+						Name: "testresource",
+					},
+					Name: "resource",
 				},
-				Name: "resource",
 			}},
 			Params: []v1alpha1.Param{{
 				Name:  "name",
-				Value: *builder.ArrayOrString("value"),
+				Value: *tb.ArrayOrString("value"),
 			}, {
 				Name:  "name",
-				Value: *builder.ArrayOrString("value"),
+				Value: *tb.ArrayOrString("value"),
 			}},
 		},
 		wantErr: apis.ErrMultipleOneOf("spec.inputs.params"),
@@ -228,13 +283,15 @@ func TestInput_Invalidate(t *testing.T) {
 		name: "duplicate resource ref and resource spec",
 		inputs: v1alpha1.TaskRunInputs{
 			Resources: []v1alpha1.TaskResourceBinding{{
-				ResourceRef: v1alpha1.PipelineResourceRef{
-					Name: "testresource",
+				PipelineResourceBinding: v1alpha1.PipelineResourceBinding{
+					ResourceRef: &v1alpha1.PipelineResourceRef{
+						Name: "testresource",
+					},
+					ResourceSpec: &v1alpha1.PipelineResourceSpec{
+						Type: v1alpha1.PipelineResourceTypeGit,
+					},
+					Name: "resource-dup",
 				},
-				ResourceSpec: &v1alpha1.PipelineResourceSpec{
-					Type: v1alpha1.PipelineResourceTypeGit,
-				},
-				Name: "resource-dup",
 			}},
 		},
 		wantErr: apis.ErrDisallowedFields("spec.Inputs.Resources.Name.ResourceRef", "spec.Inputs.Resources.Name.ResourceSpec"),
@@ -242,10 +299,12 @@ func TestInput_Invalidate(t *testing.T) {
 		name: "invalid resource spec",
 		inputs: v1alpha1.TaskRunInputs{
 			Resources: []v1alpha1.TaskResourceBinding{{
-				ResourceSpec: &v1alpha1.PipelineResourceSpec{
-					Type: "non-existent",
+				PipelineResourceBinding: v1alpha1.PipelineResourceBinding{
+					ResourceSpec: &v1alpha1.PipelineResourceSpec{
+						Type: "non-existent",
+					},
+					Name: "resource-inv",
 				},
-				Name: "resource-inv",
 			}},
 		},
 		wantErr: apis.ErrInvalidValue("spec.type", "non-existent"),
@@ -253,7 +312,9 @@ func TestInput_Invalidate(t *testing.T) {
 		name: "no resource ref and resource spec",
 		inputs: v1alpha1.TaskRunInputs{
 			Resources: []v1alpha1.TaskResourceBinding{{
-				Name: "resource",
+				PipelineResourceBinding: v1alpha1.PipelineResourceBinding{
+					Name: "resource",
+				},
 			}},
 		},
 		wantErr: apis.ErrMissingField("spec.Inputs.Resources.Name.ResourceRef", "spec.Inputs.Resources.Name.ResourceSpec"),
@@ -262,7 +323,7 @@ func TestInput_Invalidate(t *testing.T) {
 		t.Run(ts.name, func(t *testing.T) {
 			err := ts.inputs.Validate(context.Background(), "spec.Inputs")
 			if d := cmp.Diff(err.Error(), ts.wantErr.Error()); d != "" {
-				t.Errorf("TaskRunInputs.Validate/%s (-want, +got) = %v", ts.name, d)
+				t.Errorf("TaskRunInputs.Validate/%s %s", ts.name, diff.PrintWantGot(d))
 			}
 		})
 	}
@@ -271,17 +332,19 @@ func TestInput_Invalidate(t *testing.T) {
 func TestOutput_Validate(t *testing.T) {
 	i := v1alpha1.TaskRunOutputs{
 		Resources: []v1alpha1.TaskResourceBinding{{
-			ResourceRef: v1alpha1.PipelineResourceRef{
-				Name: "testresource",
+			PipelineResourceBinding: v1alpha1.PipelineResourceBinding{
+				ResourceRef: &v1alpha1.PipelineResourceRef{
+					Name: "testresource",
+				},
+				Name: "someimage",
 			},
-			Name: "someimage",
 		}},
 	}
 	if err := i.Validate(context.Background(), "spec.outputs"); err != nil {
 		t.Errorf("TaskRunOutputs.Validate() error = %v", err)
 	}
 }
-func TestOutput_Invalidate(t *testing.T) {
+func TestOutput_Invalid(t *testing.T) {
 	tests := []struct {
 		name    string
 		outputs v1alpha1.TaskRunOutputs
@@ -290,15 +353,19 @@ func TestOutput_Invalidate(t *testing.T) {
 		name: "duplicated task outputs",
 		outputs: v1alpha1.TaskRunOutputs{
 			Resources: []v1alpha1.TaskResourceBinding{{
-				ResourceRef: v1alpha1.PipelineResourceRef{
-					Name: "testresource1",
+				PipelineResourceBinding: v1alpha1.PipelineResourceBinding{
+					ResourceRef: &v1alpha1.PipelineResourceRef{
+						Name: "testresource1",
+					},
+					Name: "workspace",
 				},
-				Name: "workspace",
 			}, {
-				ResourceRef: v1alpha1.PipelineResourceRef{
-					Name: "testresource2",
+				PipelineResourceBinding: v1alpha1.PipelineResourceBinding{
+					ResourceRef: &v1alpha1.PipelineResourceRef{
+						Name: "testresource2",
+					},
+					Name: "workspace",
 				},
-				Name: "workspace",
 			}},
 		},
 		wantErr: apis.ErrMultipleOneOf("spec.Outputs.Resources.Name"),
@@ -306,7 +373,9 @@ func TestOutput_Invalidate(t *testing.T) {
 		name: "no output resource with resource spec nor resource ref",
 		outputs: v1alpha1.TaskRunOutputs{
 			Resources: []v1alpha1.TaskResourceBinding{{
-				Name: "workspace",
+				PipelineResourceBinding: v1alpha1.PipelineResourceBinding{
+					Name: "workspace",
+				},
 			}},
 		},
 		wantErr: apis.ErrMissingField("spec.Outputs.Resources.Name.ResourceSpec", "spec.Outputs.Resources.Name.ResourceRef"),
@@ -315,7 +384,7 @@ func TestOutput_Invalidate(t *testing.T) {
 		t.Run(ts.name, func(t *testing.T) {
 			err := ts.outputs.Validate(context.Background(), "spec.Outputs")
 			if d := cmp.Diff(err.Error(), ts.wantErr.Error()); d != "" {
-				t.Errorf("TaskRunOutputs.Validate/%s (-want, +got) = %v", ts.name, d)
+				t.Errorf("TaskRunOutputs.Validate/%s %s", ts.name, diff.PrintWantGot(d))
 			}
 		})
 	}

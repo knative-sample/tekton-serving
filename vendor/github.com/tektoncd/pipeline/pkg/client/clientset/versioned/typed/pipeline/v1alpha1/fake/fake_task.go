@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Tekton Authors
+Copyright 2020 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -119,7 +119,7 @@ func (c *FakeTasks) DeleteCollection(options *v1.DeleteOptions, listOptions v1.L
 // Patch applies the patch and returns the patched task.
 func (c *FakeTasks) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Task, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(tasksResource, c.ns, name, data, subresources...), &v1alpha1.Task{})
+		Invokes(testing.NewPatchSubresourceAction(tasksResource, c.ns, name, pt, data, subresources...), &v1alpha1.Task{})
 
 	if obj == nil {
 		return nil, err

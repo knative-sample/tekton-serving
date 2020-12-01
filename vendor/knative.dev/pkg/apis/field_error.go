@@ -109,6 +109,11 @@ func (fe *FieldError) ViaFieldKey(field string, key string) *FieldError {
 
 // Also collects errors, returns a new collection of existing errors and new errors.
 func (fe *FieldError) Also(errs ...*FieldError) *FieldError {
+	// Avoid doing any work, if we don't have to.
+	if l := len(errs); l == 0 || l == 1 && errs[0].isEmpty() {
+		return fe
+	}
+
 	var newErr *FieldError
 	// collect the current objects errors, if it has any
 	if !fe.isEmpty() {
@@ -312,17 +317,26 @@ func ErrDisallowedUpdateDeprecatedFields(fieldPaths ...string) *FieldError {
 }
 
 // ErrInvalidArrayValue constructs a FieldError for a repetetive `field`
-// at `index` that has received an invalid string value.
+// at `index` that has received an invalid value.
 func ErrInvalidArrayValue(value interface{}, field string, index int) *FieldError {
 	return ErrInvalidValue(value, CurrentField).ViaFieldIndex(field, index)
 }
 
 // ErrInvalidValue constructs a FieldError for a field that has received an
-// invalid string value.
+// invalid value.
 func ErrInvalidValue(value interface{}, fieldPath string) *FieldError {
 	return &FieldError{
 		Message: fmt.Sprintf("invalid value: %v", value),
 		Paths:   []string{fieldPath},
+	}
+}
+
+// ErrGeneric constructs a FieldError to allow for the different error strings for the
+// the different cases.
+func ErrGeneric(diagnostic string, fieldPaths ...string) *FieldError {
+	return &FieldError{
+		Message: diagnostic,
+		Paths:   fieldPaths,
 	}
 }
 
